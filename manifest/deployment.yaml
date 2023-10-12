@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: hello-world
-        image: ${IMAGE_NAME}:${IMAGE_TAG}
+        image: java:latest
         ports:
         - containerPort: 8080
 ---

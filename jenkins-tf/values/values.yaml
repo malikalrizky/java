@@ -33,65 +33,6 @@ controller:
 
   JCasC:
     defaultConfig: true
-    configScripts:
-      welcome-message: |
-        jenkins:
-          systemMessage: Welcome to Kube-Jenkins!
-      job-config: |
-        jobs:
-          - script: >
-              pipelineJob('testjobs/default-agent') {
-                  definition {
-                      cps {
-                          script("""\
-                              podTemplate(inheritFrom: 'default') {
-                                  node(POD_LABEL) {
-                                      pipeline {
-                                          agent any
-                                          environment {
-                                              IMAGE_NAME = 'java'
-                                              IMAGE_TAG = "\${env.BUILD_NUMBER}"
-                                          }
-                                          stages {
-                                              stage ('Checkout') {
-                                                  steps {
-                                                      checkout scm
-                                                  }
-                                              }
-                                              stage ('Build Docker Image') {
-                                                  steps {
-                                                      script {
-                                                          docker.build("\${IMAGE_NAME}:\${IMAGE_TAG}")
-                                                      }
-                                                  }
-                                              }
-                                              stage ('Push Docker Image') {
-                                                  steps {
-                                                      script {
-                                                          # docker.withRegistry('https://your-docker-registry', "\${DOCKER_CREDENTIALS}") {
-                                                          docker.withRegistry('localhost:5000') {
-                                                              docker.image("\${IMAGE_NAME}:\${IMAGE_TAG}").push()
-                                                          }
-                                                      }
-                                                  }
-                                              }
-                                              stage('List Configmaps') {
-                                                  steps {
-                                                      withKubeConfig([namespace: "this-other-namespace"]) {
-                                                          sh 'kubectl get configmap'
-                                                      }
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }""".stripIndent())
-                          sandbox()
-                      }
-                  }
-              }
-
-
 
   # LOCAL ONLY:
   serviceType: NodePort

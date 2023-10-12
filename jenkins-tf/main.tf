@@ -156,6 +156,24 @@ resource "helm_release" "jenkins" {
   timeout    = 600
 }
 
+resource "helm_release" "jenkins2" {
+
+  name       = "jenkins"
+  # namespace  = kubernetes_namespace.jenkins.id
+  repository = "https://charts.jenkins.io"
+  chart      = "stable/jenkins"
+  # values     = [file("./values/values.yaml")]
+  timeout    = 600
+  set {
+    name = "JENKINS_USER"
+    value = "admin"
+  }
+    set {
+    name = "JENKINS_PASS"
+    value = "admin1234"
+  }
+}
+
 # resource "kubernetes_service_account" "jenkins" {
 #   depends_on = [
 #     kubernetes_namespace.jenkins
