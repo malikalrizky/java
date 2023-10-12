@@ -1,5 +1,6 @@
 def DOCKER_IMAGE = "java"
 def DOCKER_TAG = "latest"
+def CLUSTER = "k3d-mycluster"
 pipeline {
     agent any
 
@@ -15,7 +16,7 @@ pipeline {
             steps {
                 script {
                 sh """
-                docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                docker build --cache-from ${DOCKER_IMAGE}:${DOCKER_TAG} -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
                 """
               }
             }
@@ -35,7 +36,7 @@ pipeline {
             steps {
                 script {
                 sh """
-                kubectl apply -f manifest/deployment.yaml
+                kubectl apply -f manifest/deployment.yaml --context ${CLUSTER}
                 """
               }
             }
