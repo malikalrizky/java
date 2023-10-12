@@ -21,15 +21,15 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
-            steps {
-                script {
-                sh """
-                docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
-                """
-              }
-            }
-        }
+        // stage('Push Docker Image') {
+        //     steps {
+        //         script {
+        //         sh """
+        //         docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
+        //         """
+        //       }
+        //     }
+        // }
 
         stage('Deploy') {
             steps {
