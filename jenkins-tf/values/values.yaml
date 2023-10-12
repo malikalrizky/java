@@ -1,95 +1,101 @@
-jenkinsUser: admin
-jenkinsPassword: admin
+controller:
 
-## Jenkins Java settings
-##
-javaOpts: '-Dpermissive-script-security.enabled=true'
+  # image: "jenkins/jenkins"
+  # tag: "latest"
+  # tagLabel: jdk11
+  imagePullPolicy: "IfNotPresent"
 
-## Jenkins configuration files
-## We can use the feature of JCasC, the configuration is defined through a configuration file
-## ref: https://github.com/jenkinsci/configuration-as-code-plugin
-##
-jcasc:
-  defaultConfig: true
-  configScripts:
-    welcome-message: |
-      jenkins:
-        systemMessage: Welcome to Kube-Jenkins!
-    job-config: |
-      jobs:
-        - script: >
-            pipelineJob('testjobs/default-agent') {
-              definition {
-                cps {
-                  script("""\
-                    pipeline {
-                      agent any
-                      environment {
-                        DOCKER_CREDENTIALS = 'YourDockerCredentialsId'
-                        IMAGE_NAME = 'java'
-                        IMAGE_TAG = "${env.BUILD_NUMBER}"
-                      }
-                      stages {
-                        stage ('Checkout') {
-                          steps {
-                            checkout scm
-                          }
-                        }
-                        stage ('Build Docker Image') {
-                          steps {
-                            script {
-                              docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
-                            }
-                          }
-                        }
-                        stage ('Push Docker Image') {
-                          steps {
-                            script {
-                              docker.withRegistry('localhost:5000') {
-                                docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
-                              }
-                            }
-                          }
-                        }
-                        stage ('Deploy to Kubernetes') {
-                          steps {
-                            sh """
-                              envsubst < ./manifest/deployment.tmpl > ./manifest/deployment.yaml &&
-                              kubectl apply -f ./manifest/deployment.yaml
-                            """
-                          }
-                        }
-                      }
-                    }""".stripIndent())
-                  sandbox()
-                }
-              }
-            }
+  adminUsername: admin
+  adminPassword: admin1234
 
-## Jenkins Plugins
-## ref: https://github.com/bitnami/bitnami-docker-jenkins#installing-plugins
-##
-plugins:
-  install: true
-  list:
+  additionalPlugins:
     - job-dsl:1.7
-    - permissivescript-security:0.6
-    - github:latest
-    - github-webhook:latest
-    - kubernetes-credentials:latest
+    - permissive-script-security:0.7
+    - github:1.37.0
     - docker-plugin:latest
     - docker-workflow:latest
 
-## Jenkins service settings
-##
-service:
-  type: NodePort
+  javaOpts: '-Dpermissive-script-security.enabled=true'
 
-## ServiceAccount configuration
-##
+  # runAsUser: 0
+  # fsGroup: 0
+
+  # podSecurityContextOverride:
+  #   runAsUser: 0
+  #   runAsNonRoot: false
+  #   supplementalGroups: [0]
+
+  # containerSecurityContext:
+  #   runAsUser: 0
+  #   runAsGroup: 0
+  #   readOnlyRootFilesystem: false
+  #   allowPrivilegeEscalation: true
+
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      welcome-message: |
+        jenkins:
+          systemMessage: Welcome to Kube-Jenkins!
+      job-config: |
+        jobs:
+          - script: >
+              pipelineJob('testjobs/default-agent') {
+                  definition {
+                      cps {
+                          script("""\
+                              podTemplate(inheritFrom: 'default') {
+                                  node(POD_LABEL) {
+                                      pipeline {
+                                          agent any
+                                          environment {
+                                              IMAGE_NAME = 'java'
+                                              IMAGE_TAG = "\${env.BUILD_NUMBER}"
+                                          }
+                                          stages {
+                                              stage ('Checkout') {
+                                                  steps {
+                                                      checkout scm
+                                                  }
+                                              }
+                                              stage ('Build Docker Image') {
+                                                  steps {
+                                                      script {
+                                                          docker.build("\${IMAGE_NAME}:\${IMAGE_TAG}")
+                                                      }
+                                                  }
+                                              }
+                                              stage ('Push Docker Image') {
+                                                  steps {
+                                                      script {
+                                                          # docker.withRegistry('https://your-docker-registry', "\${DOCKER_CREDENTIALS}") {
+                                                          docker.withRegistry('localhost:5000') {
+                                                              docker.image("\${IMAGE_NAME}:\${IMAGE_TAG}").push()
+                                                          }
+                                                      }
+                                                  }
+                                              }
+                                              stage('List Configmaps') {
+                                                  steps {
+                                                      withKubeConfig([namespace: "this-other-namespace"]) {
+                                                          sh 'kubectl get configmap'
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }""".stripIndent())
+                          sandbox()
+                      }
+                  }
+              }
+
+
+
+  # LOCAL ONLY:
+  serviceType: NodePort
 serviceAccount:
   create: false
   name: jenkins
   annotations: {}
-
-# ... [rest of the values.yaml content] ...

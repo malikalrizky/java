@@ -150,7 +150,7 @@ resource "helm_release" "jenkins" {
   ]
   name       = "jenkins"
   namespace  = kubernetes_namespace.jenkins.id
-  repository = "oci://registry-1.docker.io/bitnamicharts/jenkins"
+  repository = "https://charts.jenkins.io"
   chart      = "jenkins"
   values     = [file("./values/values.yaml")]
   timeout    = 600
