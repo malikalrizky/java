@@ -1,0 +1,100 @@
+controller:
+
+  image: "jenkins/jenkins"
+  tag: "latest"
+  # tagLabel: jdk11
+  imagePullPolicy: "IfNotPresent"
+
+  adminUsername: admin
+  adminPassword: admin
+
+  additionalPlugins:
+    - job-dsl:1.7
+    - permissivescript-security:0.6
+    - github:latest
+    - github-webhook:latest
+    - kubernetes-credentials:latest
+    - docker-plugin:latest
+    - docker-workflow:latest
+
+  javaOpts: '-Dpermissive-script-security.enabled=true'
+
+  # runAsUser: 0
+  # fsGroup: 0
+
+  # podSecurityContextOverride:
+  #   runAsUser: 0
+  #   runAsNonRoot: false
+  #   supplementalGroups: [0]
+
+  # containerSecurityContext:
+  #   runAsUser: 0
+  #   runAsGroup: 0
+  #   readOnlyRootFilesystem: false
+  #   allowPrivilegeEscalation: true
+
+  JCasC:
+    defaultConfig: true
+    configScripts:
+      welcome-message: |
+        jenkins:
+          systemMessage: Welcome to Kube-Jenkins!
+      job-config: |
+        jobs:
+          - script: >
+              pipelineJob('testjobs/default-agent') {
+                definition {
+                  cps {
+                    script("""\
+                      pipeline {
+                        agent any
+                        environment {
+                          DOCKER_CREDENTIALS = 'YourDockerCredentialsId'
+                          IMAGE_NAME = 'java'
+                          IMAGE_TAG = "${env.BUILD_NUMBER}"
+                        }
+                        stages {
+                          stage ('Checkout') {
+                            steps {
+                              checkout scm
+                            }
+                          }
+                          stage ('Build Docker Image') {
+                            steps {
+                              script {
+                                docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                              }
+                            }
+                          }
+                          stage ('Push Docker Image') {
+                            steps {
+                              script {
+                                # docker.withRegistry('https://your-docker-registry', "${DOCKER_CREDENTIALS}") {
+                                docker.withRegistry('localhost:5000') {
+                                  docker.image("${IMAGE_NAME}:${IMAGE_TAG}").push()
+                                }
+                              }
+                            }
+                          }
+                          stage ('Deploy to Kubernetes') {
+                            steps {
+                              sh """
+                                envsubst < ./manifest/deployment.tmpl > ./manifest/deployment.yaml &&
+                                kubectl apply -f ./manifest/deployment.yaml
+                              """
+                            }
+                          }
+                        }
+                      }""".stripIndent())
+                    sandbox()
+                  }
+                }
+              }
+
+
+  # LOCAL ONLY:
+  serviceType: NodePort
+serviceAccount:
+  create: false
+  name: jenkins
+  annotations: {}
